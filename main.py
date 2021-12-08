@@ -4,12 +4,11 @@ import math
 import copy
 from random import randint
 
-
 # initiële plaatsing
 Initieel_P = .035  # auto #0.0367 2 sec regel
 Initieel_V = 60 / 3.6
 Filleverkeer = True
-Fille_Size = 50
+Fille_Size = 60
 
 # variabelen
 Confortabel_Deceleratie = 1.67
@@ -19,7 +18,7 @@ Component_Acceleratie = 3
 Max_Vel = 100 / 3.6
 Min_Afstand = 6
 Remkans = 0.05
-#reactietijd
+# reactietijd
 T_Basis = 0.5
 T_Extra = 1.9
 p_T = 0.015
@@ -34,16 +33,18 @@ WHITE = (255, 255, 255)
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("IDM model")
 time = 0
-dt = .4
+dt = 0.4
 
-n = 8 # inverse of probability
-rand_bool = randint(0, n*n-1) %n == 0
+n = 8  # inverse of probability
+rand_bool = randint(0, n * n - 1) % n == 0
+
 
 def rand_bool(prob):
     s = str(prob)
     p = s.index('.')
-    d = 10**(len(s)-p)
-    return randint(0,d*d-1)%d<int(s[p+1:])
+    d = 10 ** (len(s) - p)
+    return randint(0, d * d - 1) % d < int(s[p + 1:])
+
 
 class Graph():  # plotten en opmaken van grafiek
     def __init__(self, x_Coordinaat, y_Coordinaat, WIDTH, HEIGHT, Y_AS_data, X_AS_data, voertuigen):
@@ -130,7 +131,7 @@ class Voertuig():
             self.x = self.pos[1]
             self.sqrt_ab = math.sqrt(2 * self.a_i * self.b_i)
             d_v = self.vel - next_vel
-            #tijdberekenen
+            # tijdberekenen
             if rand_bool(p_T):
                 self.T_i = self.T_i + T_Extra * 0.1
             else:
@@ -152,7 +153,7 @@ class Voertuig():
             else:
                 self.vel += dt * self.a
                 self.x += self.vel * dt + self.a * dt * dt / 2
-            #remkans
+            # remkans
             if rand_bool(Remkans):
                 self.vel = max(self.vel - 2, 0)
 
@@ -230,16 +231,23 @@ def main():
             if voertuig.run:
                 run = True
             voertuig.move(next_voertuig)
-            #print('-----')
-            #print('nummer: ', str(i))
-            #print('coordinaat: ', str(voertuig.coordinaten))
-            #print('next_coordinaat: ', str(next_voertuig.coordinaten))
-        #draw_window()
+            # print('-----')
+            # print('nummer: ', str(i))
+            # print('coordinaat: ', str(voertuig.coordinaten))
+            # print('next_coordinaat: ', str(next_voertuig.coordinaten))
+        # draw_window()
 
     if not quit:
         draw_window()
         run = True
+        clock = pygame.time.Clock()
         while run:
+            clock.tick(10)
+            keys = pygame.key.get_pressed()
+            captured = False
+            if keys[pygame.K_c] and not captured:
+                pygame.image.save(WIN, 'screenshot.jpg')
+                captured = True
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
