@@ -1,2 +1,2 @@
 # IDM-pws
-IDM model for pygame
+IDM model met pygame
