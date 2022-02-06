@@ -1,39 +1,40 @@
 import pygame
-import random
-import math
-import copy
-from random import randint
+from math import sqrt
+from math import floor
+from copy import deepcopy
+from random import randint, uniform, choice
 
 # initiële plaatsing
-Initieel_P = .035  # auto #0.0367 2 sec regel
+Initieel_P = .0537# auto #0.0367 2 sec regel
 Initieel_V = 60 / 3.6
-Filleverkeer = True
-Fille_Size = 60
+Filleverkeer = False
+Fille_Size = 170
 
 # variabelen
-Confortabel_Deceleratie = 1.67
+Confortabel_Deceleratie = (1.4, 1.5, 1.6, 1.9, 1.0)   #(min,max1.67
 Max_Acceleratie = 0.73
-Reactietijd_Gem = (1, 0.2)  # (gemiddeld in s, maximale afwijking van gemiddeld per auto)
-Component_Acceleratie = 3
-Max_Vel = 100 / 3.6
+Reactietijd_Gem = (1, 0.4)  # (gemiddeld in s, maximale afwijking van gemiddeld per auto)
+Component_Acceleratie = 8
+Max_Vel = 100 /8
 Min_Afstand = 6
-Remkans = 0.05
+Remkans = 0.04
+Rand_Rem = 3.2 #hoeveel m/s er geremd wordt bij Remkans
 # reactietijd
 T_Basis = 0.5
 T_Extra = 1.9
 p_T = 0.015
 
 # grafiek
-WIDTH, HEIGHT = 2500, 1300  # window dimenties
+WIDTH, HEIGHT = 2560, 1300  # window dimenties
 graph_WIDTH, graph_HEIGHT = 2470, 1250  # reele dimenties grafiek
-domein_grafiek, bereik_grafiek = 1200, 1100  # domein en bereik grafiek
+domein_grafiek, bereik_grafiek = 1500, 1400  # domein en bereik grafiek
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("IDM model")
 time = 0
-dt = 0.4
+dt = 0.5
 
 n = 8  # inverse of probability
 rand_bool = randint(0, n * n - 1) % n == 0
@@ -44,7 +45,16 @@ def rand_bool(prob):
     p = s.index('.')
     d = 10 ** (len(s) - p)
     return randint(0, d * d - 1) % d < int(s[p + 1:])
+def text_objects(text, font):
 
+    textSurface = font.render(text, True, BLACK)
+    return textSurface, textSurface.get_rect()
+def message_display(text, cor, rot):
+    font = pygame.font.SysFont("Arial", 11)
+    largeText = pygame.font.Font(font,11)
+    TextSurf, TextRect = text_objects(text, largeText)
+    TextRect.center = ((cor[0]), (cor[1]))
+    WIN.blit(TextSurf, TextRect)
 
 class Graph():  # plotten en opmaken van grafiek
     def __init__(self, x_Coordinaat, y_Coordinaat, WIDTH, HEIGHT, Y_AS_data, X_AS_data, voertuigen):
@@ -52,6 +62,8 @@ class Graph():  # plotten en opmaken van grafiek
         # AS_data = (max variabele AS, naam AS)
         self.x = x_Coordinaat
         self.y = y_Coordinaat
+        self.x_text = X_AS_data[1]
+        self.y_text = Y_AS_data[1]
         self.width = WIDTH
         self.height = HEIGHT
         self.Y_max = Y_AS_data[0]
@@ -79,9 +91,10 @@ class Graph():  # plotten en opmaken van grafiek
         pygame.draw.rect(WIN, BLACK, pygame.Rect(self.x, self.y, self.width, self.height), self.border_width, 0)
 
     def draw_line(self, first, lead, vel):
-        kleur = (max(0, round(255 * (1 - vel / Max_Vel) ** 5 - 5)),
-                 min(125, (round(240 * (vel / Max_Vel)))), 0)
-        pygame.draw.line(WIN, kleur, self.reeel_punt_coordinaat(first), self.reeel_punt_coordinaat(lead), 1)
+        kleur = (round(255 * (1 - vel / Max_Vel) ** 6),
+                 -round((0.5 * vel - Max_Vel/4)**2) + 255,
+                 min(255, (round(255 * (vel / Max_Vel)**6))))
+        pygame.draw.line(WIN, kleur, self.reeel_punt_coordinaat(first), self.reeel_punt_coordinaat(lead), 5)
 
     def plot_graph(self):
         self.border()
@@ -129,7 +142,7 @@ class Voertuig():
             next_pos = next_voertuig.coordinaten[-1]
             next_vel = next_pos[2]
             self.x = self.pos[1]
-            self.sqrt_ab = math.sqrt(2 * self.a_i * self.b_i)
+            self.sqrt_ab = sqrt(2 * self.a_i * self.b_i)
             d_v = self.vel - next_vel
             # tijdberekenen
             if rand_bool(p_T):
@@ -155,7 +168,7 @@ class Voertuig():
                 self.x += self.vel * dt + self.a * dt * dt / 2
             # remkans
             if rand_bool(Remkans):
-                self.vel = max(self.vel - 2, 0)
+                self.vel = max(self.vel - Rand_Rem, 0)
 
             if self.pos[0] < domein_grafiek and self.pos[1] < bereik_grafiek:
                 self.coordinaten.append((time, self.x, self.vel))
@@ -169,29 +182,28 @@ voertuigen = []
 
 
 def spawn_voertuigen(filleverkeer):
-    reactietijd = random.uniform(Reactietijd_Gem[0] - Reactietijd_Gem[1], Reactietijd_Gem[0] + Reactietijd_Gem[1])
+    reactietijd = uniform(Reactietijd_Gem[0] - Reactietijd_Gem[1], Reactietijd_Gem[0] + Reactietijd_Gem[1])
     afstand_onderling = 1 / Initieel_P
     if filleverkeer:
         fille_start = (bereik_grafiek / 2) - (Fille_Size / 2)
         fille_eind = bereik_grafiek / 2 + Fille_Size / 2
-
-        for i in range(math.floor(fille_start / afstand_onderling)):
+        for i in range(floor(fille_start / afstand_onderling)):
             voertuigen.append(Voertuig([(0, afstand_onderling * i, Initieel_V)], Max_Vel, Min_Afstand,
-                                       Confortabel_Deceleratie, Max_Acceleratie, Component_Acceleratie, reactietijd))
+                                       choice(Confortabel_Deceleratie), Max_Acceleratie, Component_Acceleratie, reactietijd))
         # fille
         afstand = Min_Afstand
-        for i in range(math.floor(Fille_Size / afstand - 1)):
+        for i in range(floor(Fille_Size / afstand - 1)):
             voertuigen.append((Voertuig([(0, fille_start + afstand * i, 0)], Max_Vel, Min_Afstand,
-                                        Confortabel_Deceleratie, Max_Acceleratie, Component_Acceleratie, reactietijd)))
+                                        choice(Confortabel_Deceleratie), Max_Acceleratie, Component_Acceleratie, reactietijd)))
 
-        for i in range(math.floor((bereik_grafiek - fille_eind) / afstand_onderling)):
+        for i in range(floor((bereik_grafiek - fille_eind) / afstand_onderling)):
             voertuigen.append(Voertuig([(0, fille_eind + i * afstand_onderling, Initieel_V)], Max_Vel, Min_Afstand,
-                                       Confortabel_Deceleratie, Max_Acceleratie, Component_Acceleratie, reactietijd))
+                                       choice(Confortabel_Deceleratie), Max_Acceleratie, Component_Acceleratie, reactietijd))
 
     else:
-        for i in range(math.floor(bereik_grafiek / afstand_onderling)):
+        for i in range(floor(bereik_grafiek / afstand_onderling)):
             voertuigen.append(Voertuig([(0, afstand_onderling * i, Initieel_V)], Max_Vel, Min_Afstand,
-                                       Confortabel_Deceleratie, Max_Acceleratie, Component_Acceleratie, reactietijd))
+                                       choice(Confortabel_Deceleratie), Max_Acceleratie, Component_Acceleratie, reactietijd))
 
 
 graph = Graph((WIDTH - graph_WIDTH) / 2, 5, graph_WIDTH, graph_HEIGHT, (bereik_grafiek, 'x in m'),
@@ -220,7 +232,7 @@ def main():
         if quit:
             break
 
-        first_voertuig = copy.deepcopy(voertuigen[0])
+        first_voertuig = deepcopy(voertuigen[0])
         for i in range(len(voertuigen)):
             voertuig = voertuigen[i]
             try:
@@ -235,7 +247,7 @@ def main():
             # print('nummer: ', str(i))
             # print('coordinaat: ', str(voertuig.coordinaten))
             # print('next_coordinaat: ', str(next_voertuig.coordinaten))
-        # draw_window()
+        draw_window()
 
     if not quit:
         draw_window()
